@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Presupuesto Brillante</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+/* ======================================================================
+   2. ESTILOS GENERALES
+   ====================================================================== */
+
+:root {
+  --blue: #1E48C8;
+  --navy: #14203C;
+  --orange: #F5761E;
+  --gray-500: #6B7280;
+  --gray-400: #9AA1AC;
+  --gray-border: #E3E6EC;
+  --field-hover: #F7F9FB;
+  --field-focus-bg: #EFF4FF;
+  --danger: #D64545;
+  --danger-bg: #FDEEEE;
+  --canvas-bg: #EEF0F3;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--canvas-bg);
+  font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  color: var(--navy);
+}
+
+/* Toolbar: vive fuera de la hoja A4 y nunca se imprime */
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border-bottom: 1px solid var(--gray-border);
+  padding: 12px 20px;
+}
+
+.toolbar button {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--navy);
+  background: #fff;
+  border: 1px solid var(--gray-border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.toolbar button:hover { border-color: var(--blue); color: var(--blue); }
+.toolbar button:active { transform: scale(0.98); }
+.toolbar button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.toolbar button.primary:hover { background: #17389E; color: #fff; }
+
+.toolbar .help-text {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--gray-500);
+  max-width: 360px;
+}
+
+.page-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px 64px;
+}
+
+/* Indicador de campo editable: sutil, desaparece por completo en preview/print */
+.editable {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+}
+body:not(.mode-preview) .editable:hover { background: var(--field-hover); }
+body:not(.mode-preview) .editable:focus {
+  background: var(--field-focus-bg);
+  outline: 1px dashed var(--blue);
+  outline-offset: 0;
+}
+.editable::placeholder { color: var(--gray-400); }
+
+.field-error { outline: 1px solid var(--danger) !important; background: var(--danger-bg) !important; }
+
+.row-remove {
+  border: none;
+  background: transparent;
+  color: var(--gray-400);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.row-remove:hover { color: var(--danger); background: var(--danger-bg); }
+
+.add-row-link {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--blue);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.add-row-link:hover { text-decoration: underline; }
+
+body.mode-preview .toolbar-editing-controls,
+body.mode-preview .row-remove,
+body.mode-preview .add-row-link {
+  visibility: hidden;
+}
+body.mode-preview .editable { background: transparent !important; outline: none !important; }
+body.mode-preview .totals-row.iva-row.iva-empty { display: none !important; }
+
+/* ======================================================================
+   3. ESTILOS A4 (hoja)
+   ====================================================================== */
+
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  background: #ffffff;
+  padding: 18mm 20mm;
+  box-shadow: 0 1px 4px rgba(20, 32, 60, 0.12);
+}
+
+.doc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+
+.logo-block img { height: 30px; width: auto; display: block; }
+.institutional-info { margin-top: 10px; font-size: 8.5pt; line-height: 1.7; color: var(--gray-500); }
+.institutional-info a { color: var(--gray-500); text-decoration: none; }
+
+.doc-title-block { text-align: right; flex-shrink: 0; }
+.doc-title { font-size: 12pt; font-weight: 700; letter-spacing: 2px; color: var(--navy); }
+.doc-meta { margin-top: 10px; font-size: 9pt; }
+.doc-meta-row { display: flex; justify-content: flex-end; gap: 8px; align-items: baseline; margin-top: 4px; }
+.doc-meta-row label { color: var(--gray-500); }
+.doc-meta-row .editable { text-align: right; width: 110px; }
+
+.divider { height: 1px; background: var(--gray-border); margin: 22px 0; }
+
+.section-label {
+  font-size: 8.5pt;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--blue);
+  margin-bottom: 12px;
+}
+
+.two-col { display: flex; gap: 32px; }
+.two-col > .col { flex: 1; min-width: 0; }
+.two-col .col-divider { width: 1px; background: var(--gray-border); }
+
+.field-group { margin-bottom: 10px; }
+.field-label { font-size: 8pt; color: var(--gray-400); margin-bottom: 2px; }
+.field-value { font-size: 9.5pt; }
+
+.detail-head {
+  display: flex;
+  border-bottom: 1.2px solid var(--navy);
+  padding-bottom: 6px;
+}
+.detail-head .col-desc { flex: 1; font-size: 8pt; font-weight: 700; letter-spacing: 1px; color: var(--gray-500); }
+.detail-head .col-total { width: 130px; text-align: right; font-size: 8pt; font-weight: 700; letter-spacing: 1px; color: var(--gray-500); }
+.detail-head .col-spacer { width: 24px; }
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 0.5px solid var(--gray-border);
+}
+.detail-row .col-desc { flex: 1; min-width: 0; font-size: 9.5pt; }
+.detail-row .col-total { width: 130px; }
+.detail-row .col-total .editable { text-align: right; font-variant-numeric: tabular-nums; font-size: 9.5pt; }
+.detail-row .col-spacer { width: 24px; text-align: center; }
+
+.totals-block { display: flex; flex-direction: column; align-items: flex-end; margin-top: 16px; gap: 6px; }
+.totals-row { display: flex; align-items: baseline; gap: 24px; font-size: 9.5pt; }
+.totals-row .totals-label { color: var(--gray-500); display: flex; align-items: baseline; gap: 3px; }
+.totals-row .totals-value { width: 130px; text-align: right; font-variant-numeric: tabular-nums; }
+.totals-row.iva-row .iva-input { width: 2.4em; text-align: right; display: inline-block; }
+/* La fila de IVA solo se oculta cuando está vacía en preview/print (ver secciones 4 y "mode-preview" abajo).
+   En edición debe seguir visible para que el comercial pueda completarla. */
+
+.totals-final-rule { width: 240px; height: 1px; background: var(--blue); margin: 4px 0 2px; }
+.totals-row.final { font-size: 11pt; font-weight: 700; }
+.totals-row.final .totals-label { color: var(--navy); }
+.totals-row.final .totals-value { color: var(--blue); font-size: 17pt; }
+
+.observaciones-text {
+  font-size: 8.5pt;
+  line-height: 1.7;
+  color: #3C4257;
+  min-height: 3.4em;
+  white-space: pre-wrap;
+}
+.observaciones-text:empty::before { content: attr(data-placeholder); color: var(--gray-400); }
+
+/* ======================================================================
+   4. ESTILOS DE IMPRESIÓN
+   ====================================================================== */
+
+@page { size: A4; margin: 0; }
+
+@media print {
+  body { background: #ffffff; }
+  .toolbar, .page-wrap { display: block; }
+  .toolbar { display: none !important; }
+  .page-wrap { padding: 0; display: block; }
+  .page { box-shadow: none; margin: 0 auto; }
+  .editable { background: transparent !important; outline: none !important; }
+  .row-remove, .add-row-link { display: none !important; }
+  .totals-row.iva-row.iva-empty { display: none !important; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     1. HTML — toolbar (fuera de la hoja) + hoja A4
+     ====================================================================== -->
+
+<div class="toolbar">
+  <button type="button" id="btnNew" class="toolbar-editing-controls">Nuevo presupuesto</button>
+  <button type="button" id="btnAddRow" class="toolbar-editing-controls">Agregar concepto</button>
+  <button type="button" id="btnPreview">Previsualizar</button>
+  <button type="button" id="btnExport" class="primary">Exportar PDF</button>
+  <span class="help-text toolbar-editing-controls">Los campos marcados pueden editarse. Los importes de subtotal, IVA y total final se calculan automáticamente.</span>
+</div>
+
+<div class="page-wrap">
+  <div class="page">
+
+    <div class="doc-header">
+      <div class="logo-block">
+        <img src="assets/logo-brillante.png" alt="Brillante">
+        <div class="institutional-info">
+          Ildefonso de las Muñecas 2657. S.M. de Tucumán. Argentina<br>
+          ventas@brillantelimpieza.com<br>
+          Instagram: brillante.limpieza<br>
+          <a href="https://brillantelimpieza.com/" target="_blank" rel="noopener">brillantelimpieza.com</a>
+        </div>
+      </div>
+      <div class="doc-title-block">
+        <div class="doc-title">PRESUPUESTO</div>
+        <div class="doc-meta">
+          <div class="doc-meta-row"><label>N.º</label><input type="text" id="fieldNumero" class="editable" placeholder="0000"></div>
+          <div class="doc-meta-row"><label>Fecha</label><input type="text" id="fieldFecha" class="editable" placeholder="dd/mm/aaaa"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="two-col">
+      <div class="col">
+        <div class="section-label">DATOS DEL CLIENTE</div>
+        <div class="field-group">
+          <div class="field-label">Nombre</div>
+          <input type="text" id="fieldClienteNombre" class="editable field-value" placeholder="Nombre del cliente">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Dirección</div>
+          <input type="text" id="fieldClienteDireccion" class="editable field-value" placeholder="Dirección">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Teléfono</div>
+          <input type="text" id="fieldClienteTelefono" class="editable field-value" placeholder="Teléfono">
+        </div>
+      </div>
+      <div class="col-divider"></div>
+      <div class="col">
+        <div class="section-label">DATOS ADMINISTRATIVOS</div>
+        <div class="field-group">
+          <div class="field-label">Validez</div>
+          <input type="text" id="fieldValidez" class="editable field-value" placeholder="Ej: 15 días">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Asesor comercial</div>
+          <input type="text" id="fieldAsesor" class="editable field-value" placeholder="Nombre del asesor">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Teléfono del asesor</div>
+          <input type="text" id="fieldTelAsesor" class="editable field-value" placeholder="Teléfono">
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-label">DETALLE DEL PRESUPUESTO</div>
+    <div class="detail-head">
+      <div class="col-desc">DESCRIPCIÓN</div>
+      <div class="col-total">TOTAL</div>
+      <div class="col-spacer"></div>
+    </div>
+    <div id="rowsContainer"></div>
+    <button type="button" class="add-row-link" id="btnAddRowInline">+ Agregar concepto</button>
+
+    <div class="totals-block">
+      <div class="totals-row">
+        <span class="totals-label">SUBTOTAL</span>
+        <span class="totals-value" id="subtotalValue">$ 0</span>
+      </div>
+      <div class="totals-row iva-row iva-empty" id="ivaRow">
+        <span class="totals-label">IVA&nbsp;<input type="text" inputmode="decimal" id="fieldIvaPct" class="editable iva-input" placeholder="—">%</span>
+        <span class="totals-value" id="ivaValue">$ 0</span>
+      </div>
+      <div class="totals-final-rule"></div>
+      <div class="totals-row final">
+        <span class="totals-label">TOTAL FINAL</span>
+        <span class="totals-value" id="totalFinalValue">$ 0</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-label">OBSERVACIONES / CONDICIONES COMERCIALES</div>
+    <div id="fieldObservaciones" class="editable observaciones-text" contenteditable="true" data-placeholder="Condiciones de pago, alcance del servicio, vigencia u otras aclaraciones..."></div>
+
+  </div>
+</div>
+
+<script>
+
+/* ======================================================================
+   5. ESTADO DEL PRESUPUESTO — única fuente de verdad
+   ====================================================================== */
+
+const APP_TITLE = 'Presupuesto Brillante';
+const INITIAL_ROWS = 8;
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function todayFormatted() {
+  const d = new Date();
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+function defaultState() {
+  return {
+    numero: '',
+    fecha: todayFormatted(),
+    cliente: { nombre: '', direccion: '', telefono: '' },
+    admin: { validez: '', asesor: '', telAsesor: '' },
+    items: Array.from({ length: INITIAL_ROWS }, () => ({ desc: '', total: 0 })),
+    ivaPct: '',
+    observaciones: ''
+  };
+}
+
+let state = defaultState();
+
+/* ======================================================================
+   6. LÓGICA DE EDICIÓN — binding de campos, filas dinámicas
+   ====================================================================== */
+
+function sanitizeNumericField(el) {
+  const before = el.value;
+  let cleaned = before.replace(/[^0-9,]/g, '');
+  const firstComma = cleaned.indexOf(',');
+  if (firstComma !== -1) {
+    cleaned = cleaned.slice(0, firstComma + 1) + cleaned.slice(firstComma + 1).replace(/,/g, '');
+  }
+  if (cleaned !== before) {
+    const pos = Math.max(0, el.selectionStart - (before.length - cleaned.length));
+    el.value = cleaned;
+    try { el.setSelectionRange(pos, pos); } catch (e) {}
+  }
+}
+
+function bindText(el, get, set) {
+  el.value = get();
+  el.addEventListener('input', () => set(el.value));
+}
+
+function renderRows() {
+  const container = document.getElementById('rowsContainer');
+  container.innerHTML = '';
+  state.items.forEach((row, i) => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'detail-row';
+
+    const descInput = document.createElement('input');
+    descInput.type = 'text';
+    descInput.className = 'editable col-desc';
+    descInput.placeholder = 'Descripción del servicio';
+    descInput.value = row.desc;
+    descInput.addEventListener('input', () => { row.desc = descInput.value; });
+
+    const totalWrap = document.createElement('div');
+    totalWrap.className = 'col-total';
+    const totalInput = document.createElement('input');
+    totalInput.type = 'text';
+    totalInput.inputMode = 'decimal';
+    totalInput.className = 'editable';
+    totalInput.placeholder = '$ 0';
+    totalInput.value = row.total ? formatCurrency(row.total) : '';
+    totalInput.addEventListener('focus', () => {
+      totalInput.value = row.total ? String(row.total).replace('.', ',') : '';
+    });
+    totalInput.addEventListener('input', () => {
+      sanitizeNumericField(totalInput);
+      const parsed = parseAmount(totalInput.value);
+      row.total = isFinite(parsed) ? parsed : 0;
+      recalcTotals();
+    });
+    totalInput.addEventListener('blur', () => {
+      totalInput.value = row.total ? formatCurrency(row.total) : '';
+    });
+    totalWrap.appendChild(totalInput);
+
+    const spacer = document.createElement('div');
+    spacer.className = 'col-spacer';
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'row-remove';
+    removeBtn.setAttribute('aria-label', 'Eliminar concepto');
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', () => {
+      state.items.splice(i, 1);
+      if (state.items.length === 0) state.items.push({ desc: '', total: 0 });
+      renderRows();
+      recalcTotals();
+    });
+    spacer.appendChild(removeBtn);
+
+    rowEl.appendChild(descInput);
+    rowEl.appendChild(totalWrap);
+    rowEl.appendChild(spacer);
+    container.appendChild(rowEl);
+  });
+}
+
+function addRow() {
+  state.items.push({ desc: '', total: 0 });
+  renderRows();
+  const inputs = document.querySelectorAll('#rowsContainer .col-desc');
+  const last = inputs[inputs.length - 1];
+  if (last) last.focus();
+}
+
+function render() {
+  document.getElementById('fieldNumero').value = state.numero;
+  document.getElementById('fieldFecha').value = state.fecha;
+  document.getElementById('fieldClienteNombre').value = state.cliente.nombre;
+  document.getElementById('fieldClienteDireccion').value = state.cliente.direccion;
+  document.getElementById('fieldClienteTelefono').value = state.cliente.telefono;
+  document.getElementById('fieldValidez').value = state.admin.validez;
+  document.getElementById('fieldAsesor').value = state.admin.asesor;
+  document.getElementById('fieldTelAsesor').value = state.admin.telAsesor;
+  document.getElementById('fieldIvaPct').value = state.ivaPct;
+  document.getElementById('fieldObservaciones').innerText = state.observaciones;
+  renderRows();
+  recalcTotals();
+}
+
+function bindStaticFields() {
+  bindText(document.getElementById('fieldNumero'), () => state.numero, v => state.numero = v);
+  bindText(document.getElementById('fieldFecha'), () => state.fecha, v => state.fecha = v);
+  bindText(document.getElementById('fieldClienteNombre'), () => state.cliente.nombre, v => state.cliente.nombre = v);
+  bindText(document.getElementById('fieldClienteDireccion'), () => state.cliente.direccion, v => state.cliente.direccion = v);
+  bindText(document.getElementById('fieldClienteTelefono'), () => state.cliente.telefono, v => state.cliente.telefono = v);
+  bindText(document.getElementById('fieldValidez'), () => state.admin.validez, v => state.admin.validez = v);
+  bindText(document.getElementById('fieldAsesor'), () => state.admin.asesor, v => state.admin.asesor = v);
+  bindText(document.getElementById('fieldTelAsesor'), () => state.admin.telAsesor, v => state.admin.telAsesor = v);
+
+  const ivaInput = document.getElementById('fieldIvaPct');
+  ivaInput.addEventListener('input', () => {
+    sanitizeNumericField(ivaInput);
+    state.ivaPct = ivaInput.value;
+    recalcTotals();
+  });
+
+  const obs = document.getElementById('fieldObservaciones');
+  obs.addEventListener('input', () => { state.observaciones = obs.innerText; });
+
+  document.getElementById('btnNew').addEventListener('click', () => {
+    if (confirm('¿Crear un nuevo presupuesto? Se perderán los datos actuales no exportados.')) {
+      state = defaultState();
+      render();
+    }
+  });
+  document.getElementById('btnAddRow').addEventListener('click', addRow);
+  document.getElementById('btnAddRowInline').addEventListener('click', addRow);
+
+  document.getElementById('btnPreview').addEventListener('click', function () {
+    document.body.classList.toggle('mode-preview');
+    this.textContent = document.body.classList.contains('mode-preview') ? 'Volver a edición' : 'Previsualizar';
+  });
+
+  document.getElementById('btnExport').addEventListener('click', exportPDF);
+}
+
+/* ======================================================================
+   7. LÓGICA DE CÁLCULOS — subtotal, IVA, total final (en tiempo real)
+   ====================================================================== */
+
+function parseAmount(raw) {
+  if (typeof raw !== 'string') return 0;
+  let s = raw.trim();
+  if (s === '') return 0;
+  s = s.replace(/\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+
+function formatCurrency(num) {
+  if (!isFinite(num)) num = 0;
+  const cents = Math.round(num * 100);
+  const hasDecimals = cents % 100 !== 0;
+  return '$ ' + num.toLocaleString('es-AR', {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2
+  });
+}
+
+function recalcTotals() {
+  const subtotal = state.items.reduce((sum, row) => sum + (isFinite(row.total) ? row.total : 0), 0);
+  const ivaEmpty = state.ivaPct.trim() === '';
+  const ivaPctNum = ivaEmpty ? 0 : parseAmount(state.ivaPct);
+  const importeIva = ivaEmpty ? 0 : subtotal * ivaPctNum / 100;
+  const totalFinal = subtotal + importeIva;
+
+  document.getElementById('subtotalValue').textContent = formatCurrency(subtotal);
+  document.getElementById('ivaValue').textContent = formatCurrency(importeIva);
+  document.getElementById('totalFinalValue').textContent = formatCurrency(totalFinal);
+  document.getElementById('ivaRow').classList.toggle('iva-empty', ivaEmpty);
+}
+
+/* ======================================================================
+   8. GENERACIÓN DEL PDF
+   ====================================================================== */
+
+function slugify(str) {
+  if (!str) return '';
+  const noAccents = str.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return noAccents.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function todaySlug() {
+  const d = new Date();
+  return `${pad2(d.getDate())}-${pad2(d.getMonth() + 1)}-${d.getFullYear()}`;
+}
+
+function dateForFilename(str) {
+  const m = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/.exec(str || '');
+  if (!m) return todaySlug();
+  return `${pad2(m[1])}-${pad2(m[2])}-${m[3]}`;
+}
+
+function exportPDF() {
+  const clienteSlug = slugify(state.cliente.nombre) || 'Cliente';
+  const fechaSlug = dateForFilename(state.fecha);
+  document.title = `Presupuesto_Brillante_${clienteSlug}_${fechaSlug}`;
+  window.print();
+}
+
+window.addEventListener('afterprint', () => { document.title = APP_TITLE; });
+
+/* ---- init ---- */
+document.title = APP_TITLE;
+bindStaticFields();
+render();
+
+</script>
+</body>
+</html>
