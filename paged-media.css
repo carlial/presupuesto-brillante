@@ -1,0 +1,66 @@
+/* ==========================================================================
+   CSS de paginación — SOLO la lee Paged.js (Paginator la pasa como
+   stylesheet a Previewer.preview()). A propósito NO se linkea en <head>:
+   si el navegador la viera de forma nativa al imprimir, duplicaría el
+   margen que Paged.js ya "horneó" dentro de cada .pagedjs_page.
+   ========================================================================== */
+
+@page {
+  size: A4;
+  margin: 20mm 20mm 24mm 20mm;
+
+  @top-center {
+    /* El texto lo inyecta Paginator (app.js) después de paginar: el
+       "running element" nativo de Paged.js 0.4.3 duplicaba el contenido
+       también en el flujo normal del documento. */
+    content: "";
+    font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 8pt;
+    color: #6B7280;
+  }
+  @bottom-left {
+    content: "Brillante · brillantelimpieza.com";
+    font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 7.5pt;
+    color: #9AA1AC;
+  }
+  @bottom-right {
+    /* Los números de página se agregan en tiempo de ejecución (segunda
+       pasada de paginación) solo si el documento tiene más de una hoja. */
+    content: "";
+    font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 7.5pt;
+    color: #9AA1AC;
+  }
+}
+
+/* Portada: ya muestra el encabezado institucional completo en el flujo
+   normal del documento, así que el encabezado reducido no debe
+   repetirse ahí. Paginator (app.js) inyecta el texto en el margin-box de
+   @top-center de cada página excepto la primera, después de paginar. */
+
+/* El bloque que alimenta el encabezado reducido de páginas 2+ se saca del
+   flujo normal (por eso no aparece "de más" en la portada) y solo se
+   renderiza dentro del margin-box de arriba. */
+.running-header-source {
+  position: running(pageHeader);
+}
+
+/* ---- Reglas de fragmentación ---- */
+
+/* Bloques chicos y acotados: siempre entran completos en una página, así
+   que forzar que no se corten es seguro. */
+.doc-header { break-inside: avoid; break-after: avoid; }
+.two-col { break-inside: avoid; }
+.totals-block { break-inside: avoid; }
+
+/* Títulos de sección: nunca quedan solos al pie de una página. */
+.section-label { break-after: avoid; }
+.detail-table thead { break-after: avoid; }
+
+/* A propósito NO forzamos break-inside: avoid sobre las filas de la tabla
+   ni sobre la descripción de cada concepto: una descripción puede ser más
+   alta que una página entera (ver caso Hospital Padilla) y forzar "avoid"
+   ahí rompe la impresión. Dejamos que el motor de paginación fragmente el
+   texto de forma natural — nunca corta una línea al medio por defecto. */
+p, li { orphans: 3; widows: 3; }
