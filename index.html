@@ -100,11 +100,8 @@
         </div>
         <div class="field-group">
           <div class="field-label">Asesor comercial</div>
-          <select id="fieldAsesorSelect" class="editable field-value"></select>
-        </div>
-        <div class="field-group" id="asesorManualGroup">
-          <div class="field-label">Nombre del asesor</div>
-          <input type="text" id="fieldAsesorNombre" class="editable field-value" placeholder="Nombre del asesor">
+          <input type="text" id="fieldAsesorNombre" class="editable field-value" placeholder="Nombre del asesor" list="asesoresList" autocomplete="off">
+          <datalist id="asesoresList"></datalist>
         </div>
         <div class="field-group">
           <div class="field-label">Teléfono del asesor</div>

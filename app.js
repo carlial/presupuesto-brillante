@@ -61,7 +61,7 @@ const Store = (() => {
       numero: '',
       fecha: todayFormatted(),
       cliente: { nombre: '', direccion: '', telefono: '' },
-      admin: { validez: '', asesorId: 'otro', asesorNombre: '', asesorTelefono: '' },
+      admin: { validez: '', asesorNombre: '', asesorTelefono: '' },
       layout: 'simple',
       moneda: 'ARS',
       items: Array.from({ length: INITIAL_ROWS }, newItem),
@@ -464,8 +464,20 @@ const Editor = (() => {
     bindText($('fieldClienteDireccion'), () => s.cliente.direccion, v => s.cliente.direccion = v);
     bindText($('fieldClienteTelefono'), () => s.cliente.telefono, v => s.cliente.telefono = v);
     bindText($('fieldValidez'), () => s.admin.validez, v => s.admin.validez = v);
-    bindText($('fieldAsesorNombre'), () => s.admin.asesorNombre, v => { s.admin.asesorNombre = v; s.admin.asesorId = 'otro'; syncAsesorSelect(); });
-    bindText($('fieldAsesorTelefono'), () => s.admin.asesorTelefono, v => { s.admin.asesorTelefono = v; s.admin.asesorId = 'otro'; syncAsesorSelect(); });
+    const asesorNombre = $('fieldAsesorNombre');
+    asesorNombre.value = s.admin.asesorNombre;
+    asesorNombre.addEventListener('input', () => {
+      s.admin.asesorNombre = asesorNombre.value;
+      // Si el nombre coincide con un asesor predefinido, completa el
+      // teléfono solo; igual se puede seguir escribiendo cualquier otro.
+      const preset = ASESORES.find(a => a.nombre === asesorNombre.value);
+      if (preset) {
+        s.admin.asesorTelefono = preset.telefono;
+        $('fieldAsesorTelefono').value = preset.telefono;
+      }
+      onAnyChange();
+    });
+    bindText($('fieldAsesorTelefono'), () => s.admin.asesorTelefono, v => s.admin.asesorTelefono = v);
 
     const iva = $('fieldIvaPct');
     iva.value = s.ivaPct;
@@ -485,28 +497,11 @@ const Editor = (() => {
     $('fieldMoneda').value = s.moneda;
     $('fieldMoneda').addEventListener('change', e => { s.moneda = e.target.value; renderRows(); onAnyChange(); });
 
-    populateAsesorSelect();
+    populateAsesoresDatalist();
   }
 
-  function populateAsesorSelect() {
-    const sel = $('fieldAsesorSelect');
-    sel.innerHTML = '<option value="otro">Escribir manualmente…</option>' +
-      ASESORES.map((a, i) => `<option value="${i}">${escapeHtml(a.nombre)}</option>`).join('');
-    sel.addEventListener('change', () => {
-      const s = state();
-      if (sel.value === 'otro') { s.admin.asesorId = 'otro'; onAnyChange(); return; }
-      const a = ASESORES[Number(sel.value)];
-      s.admin.asesorId = sel.value;
-      s.admin.asesorNombre = a.nombre;
-      s.admin.asesorTelefono = a.telefono;
-      $('fieldAsesorNombre').value = a.nombre;
-      $('fieldAsesorTelefono').value = a.telefono;
-      onAnyChange();
-    });
-    syncAsesorSelect();
-  }
-  function syncAsesorSelect() {
-    $('fieldAsesorSelect').value = state().admin.asesorId || 'otro';
+  function populateAsesoresDatalist() {
+    $('asesoresList').innerHTML = ASESORES.map(a => `<option value="${escapeHtml(a.nombre)}">`).join('');
   }
 
   // ---- Encabezado de columnas (según modo) ----
@@ -686,7 +681,6 @@ const Editor = (() => {
     $('fieldValidez').value = s.admin.validez;
     $('fieldAsesorNombre').value = s.admin.asesorNombre;
     $('fieldAsesorTelefono').value = s.admin.asesorTelefono;
-    syncAsesorSelect();
     $('fieldIvaPct').value = s.ivaPct;
     $('fieldCondiciones').innerHTML = s.condiciones;
     $('fieldLayout').value = s.layout;

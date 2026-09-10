@@ -91,8 +91,6 @@ body {
 .editable::placeholder { color: var(--gray-400); }
 .field-error { outline: 1px solid var(--danger) !important; background: var(--danger-bg) !important; }
 
-#asesorManualGroup.hidden-field { display: none; }
-
 .row-controls { display: flex; align-items: center; gap: 2px; }
 .row-btn {
   border: none;
@@ -248,7 +246,9 @@ body {
 .totals-row .totals-label { color: var(--gray-500); display: flex; align-items: baseline; gap: 3px; }
 .totals-row .totals-value { width: 130px; text-align: right; font-variant-numeric: tabular-nums; }
 .totals-row.iva-row .iva-input { width: 2.4em; text-align: right; display: inline-block; }
-.totals-row.iva-row.iva-empty { display: none; }
+/* No se oculta acá: en edición el campo de IVA siempre debe poder
+   completarse. Cuando está vacío, DocumentRenderer directamente no genera
+   esa fila en el documento/PDF (ver app.js), así que no hace falta CSS. */
 .totals-final-rule { width: 240px; height: 1px; background: var(--blue); margin: 4px 0 2px; }
 .totals-row.final { font-size: 11pt; font-weight: 700; }
 .totals-row.final .totals-label { color: var(--navy); }
