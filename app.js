@@ -17,6 +17,16 @@ function todayFormatted() {
   const d = new Date();
   return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
+// Entero interno -> "0001" / "0015" / "1254" / "10000" (nunca trunca).
+function formatNumero(n) {
+  return n == null ? 'Pendiente' : String(n).padStart(4, '0');
+}
+// Deja pasar solo dígitos (hasta 11) e inserta los guiones de CUIT
+// automáticamente: XX-XXXXXXXX-X. Sin validación contra AFIP/ARCA.
+function formatCuit(raw) {
+  const digits = String(raw || '').replace(/\D/g, '').slice(0, 11);
+  return [digits.slice(0, 2), digits.slice(2, 10), digits.slice(10, 11)].filter(Boolean).join('-');
+}
 function escapeHtml(str) {
   return String(str || '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -58,9 +68,11 @@ const Store = (() => {
 
   function defaultState() {
     return {
-      numero: '',
+      id: null,
+      numeroPresupuesto: null,
+      estado: 'borrador', // 'borrador' | 'emitido' — ver Numbering
       fecha: todayFormatted(),
-      cliente: { nombre: '', direccion: '', telefono: '' },
+      cliente: { nombre: '', cuit: '', direccion: '', telefono: '' },
       admin: { validez: '', asesorNombre: '', asesorTelefono: '' },
       layout: 'simple',
       moneda: 'ARS',
@@ -105,8 +117,16 @@ const Store = (() => {
     try { localStorage.removeItem(KEY); } catch (e) {}
   }
 
+  // "Nuevo presupuesto": limpia cliente/conceptos/observaciones y vuelve a
+  // dejar el N.º pendiente, pero conserva la configuración general del
+  // comercial (formato de tabla, moneda, asesor) para no repetir carga.
   function reset() {
+    const prev = state;
     state = defaultState();
+    state.layout = prev.layout;
+    state.moneda = prev.moneda;
+    state.admin.asesorNombre = prev.admin.asesorNombre;
+    state.admin.asesorTelefono = prev.admin.asesorTelefono;
     nextId = 1;
     clear();
     return state;
@@ -185,6 +205,46 @@ const Calc = (() => {
 })();
 
 /* ==========================================================================
+   NUMBERING — numeración correlativa centralizada (Supabase)
+   Un proyecto Supabase gratuito expone Postgres vía API REST usable desde
+   un sitio estático (GitHub Pages, sin backend propio). La columna
+   numero_presupuesto es "generated always as identity" en Postgres: cada
+   INSERT recibe un entero único e irrepetible garantizado por la base,
+   sin importar cuántos comerciales exporten al mismo tiempo — nunca se
+   calcula "último número + 1" en el navegador.
+   ========================================================================== */
+const Numbering = (() => {
+  // TODO: completar con los datos de Settings → API del proyecto Supabase
+  // (Project URL y anon public key — ninguna de las dos es secreta).
+  const SUPABASE_URL = '';
+  const SUPABASE_ANON_KEY = '';
+
+  let client = null;
+  function getClient() {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error('Numbering: falta configurar SUPABASE_URL / SUPABASE_ANON_KEY en app.js');
+    }
+    if (!client) client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return client;
+  }
+
+  // Reserva atómica del próximo número correlativo. Se llama una sola vez
+  // por presupuesto (la primera exportación); las siguientes reutilizan el
+  // número ya guardado en el estado.
+  async function assignNumber({ cliente, cuit, asesor }) {
+    const { data, error } = await getClient()
+      .from('presupuestos')
+      .insert({ cliente: cliente || null, cuit: cuit || null, asesor: asesor || null })
+      .select('id, numero_presupuesto')
+      .single();
+    if (error) throw error;
+    return { id: data.id, numero: data.numero_presupuesto };
+  }
+
+  return { assignNumber };
+})();
+
+/* ==========================================================================
    DOCUMENT RENDERER — state -> HTML estático (sin controles, sin campos
    vacíos), lo que efectivamente pagina Paged.js
    ========================================================================== */
@@ -197,6 +257,7 @@ const DocumentRenderer = (() => {
   function clienteBlock(state) {
     const rows = [
       fieldRow('Nombre / Razón social', state.cliente.nombre),
+      fieldRow('CUIT', state.cliente.cuit),
       fieldRow('Dirección', state.cliente.direccion),
       fieldRow('Teléfono', state.cliente.telefono)
     ].join('');
@@ -262,7 +323,7 @@ const DocumentRenderer = (() => {
 
   function runningHeaderText(state) {
     const parts = ['Brillante'];
-    if (state.numero) parts.push('Presupuesto N.º ' + state.numero);
+    if (state.estado === 'emitido') parts.push('Presupuesto N.º ' + formatNumero(state.numeroPresupuesto));
     if (state.cliente.nombre) parts.push(state.cliente.nombre);
     return parts.join(' · ');
   }
@@ -288,7 +349,7 @@ const DocumentRenderer = (() => {
         <div class="doc-title-block">
           <div class="doc-title">PRESUPUESTO</div>
           <div class="doc-meta">
-            ${state.numero ? `<div class="doc-meta-row"><label>N.º</label><span>${escapeHtml(state.numero)}</span></div>` : ''}
+            <div class="doc-meta-row"><label>N.º</label><span>${escapeHtml(formatNumero(state.numeroPresupuesto))}</span></div>
             ${state.fecha ? `<div class="doc-meta-row"><label>Fecha</label><span>${escapeHtml(state.fecha)}</span></div>` : ''}
           </div>
         </div>
@@ -388,11 +449,38 @@ const PdfExport = (() => {
     return `${pad2(m[1])}-${pad2(m[2])}-${m[3]}`;
   }
 
+  // Primera exportación de este presupuesto: reserva el número en Supabase
+  // (atómico, ver Numbering) y lo deja fijo en el estado. Si Supabase no
+  // responde, se corta acá — nunca se sigue con un número inventado local.
+  async function ensureNumero(state) {
+    if (state.estado === 'emitido') return true;
+    try {
+      const { id, numero } = await Numbering.assignNumber({
+        cliente: state.cliente.nombre,
+        cuit: state.cliente.cuit,
+        asesor: state.admin.asesorNombre
+      });
+      state.id = id;
+      state.numeroPresupuesto = numero;
+      state.estado = 'emitido';
+      Store.scheduleSave();
+      return true;
+    } catch (err) {
+      console.error('No se pudo asignar el número de presupuesto:', err);
+      alert('No se pudo asignar el número de presupuesto. Revisá tu conexión e intentá de nuevo.');
+      return false;
+    }
+  }
+
   async function exportPDF(state) {
+    const ok = await ensureNumero(state);
+    if (!ok) return false;
     await Paginator.paginate(state);
     const clienteSlug = slugify(state.cliente.nombre) || 'Cliente';
-    document.title = `Presupuesto_Brillante_${clienteSlug}_${dateForFilename(state.fecha)}`;
+    const numeroSlug = formatNumero(state.numeroPresupuesto);
+    document.title = `Presupuesto_Brillante_${numeroSlug}_${clienteSlug}_${dateForFilename(state.fecha)}`;
     window.print();
+    return true;
   }
 
   return { exportPDF };
@@ -458,9 +546,21 @@ const Editor = (() => {
 
   function bindStaticFields() {
     const s = state();
-    bindText($('fieldNumero'), () => s.numero, v => s.numero = v);
     bindText($('fieldFecha'), () => s.fecha, v => s.fecha = v);
     bindText($('fieldClienteNombre'), () => s.cliente.nombre, v => s.cliente.nombre = v);
+    const cuit = $('fieldClienteCuit');
+    cuit.value = s.cliente.cuit;
+    cuit.addEventListener('input', () => {
+      const pos = cuit.selectionStart;
+      const before = cuit.value;
+      cuit.value = formatCuit(cuit.value);
+      // El formato solo agrega guiones (nunca los saca de en medio), así
+      // que el cursor puede quedarse al final sin desorientar al usuario.
+      if (cuit.value.length !== before.length) cuit.setSelectionRange(cuit.value.length, cuit.value.length);
+      else { try { cuit.setSelectionRange(pos, pos); } catch (e) {} }
+      s.cliente.cuit = cuit.value;
+      onAnyChange();
+    });
     bindText($('fieldClienteDireccion'), () => s.cliente.direccion, v => s.cliente.direccion = v);
     bindText($('fieldClienteTelefono'), () => s.cliente.telefono, v => s.cliente.telefono = v);
     bindText($('fieldValidez'), () => s.admin.validez, v => s.admin.validez = v);
@@ -670,12 +770,22 @@ const Editor = (() => {
     onAnyChange();
   }
 
+  // El N.º ya no se carga a mano: es de solo lectura y refleja el estado
+  // ("Pendiente" en borrador, el correlativo fijo una vez emitido).
+  function renderNumeroBadge() {
+    const s = state();
+    const el = $('fieldNumero');
+    el.textContent = formatNumero(s.numeroPresupuesto);
+    el.classList.toggle('pending', s.estado !== 'emitido');
+  }
+
   // ---- Render completo (init / reset) ----
   function render() {
     const s = state();
-    $('fieldNumero').value = s.numero;
+    renderNumeroBadge();
     $('fieldFecha').value = s.fecha;
     $('fieldClienteNombre').value = s.cliente.nombre;
+    $('fieldClienteCuit').value = s.cliente.cuit;
     $('fieldClienteDireccion').value = s.cliente.direccion;
     $('fieldClienteTelefono').value = s.cliente.telefono;
     $('fieldValidez').value = s.admin.validez;
@@ -690,37 +800,57 @@ const Editor = (() => {
     recalcEditTotals();
   }
 
+  // ---- Confirmación de "Nuevo presupuesto" (modal propio: confirm()
+  // nativo no permite rotular los botones "Cancelar" / "Crear nuevo") ----
+  function openNewConfirm() {
+    $('confirmNewOverlay').hidden = false;
+  }
+  function closeNewConfirm() {
+    $('confirmNewOverlay').hidden = true;
+  }
+
+  // ---- Previsualización: cerrar sin tocar datos ----
+  function isPreviewing() { return document.body.classList.contains('mode-preview'); }
+  function closePreview() {
+    if (!isPreviewing()) return;
+    document.body.classList.remove('mode-preview');
+    $('btnPreview').textContent = 'Previsualizar';
+  }
+
   // ---- Barra externa ----
   function bindToolbar() {
-    $('btnNew').addEventListener('click', () => {
-      if (confirm('¿Crear un nuevo presupuesto? Se perderán los datos actuales no exportados.')) {
-        Store.reset();
-        render();
-      }
+    $('btnNew').addEventListener('click', openNewConfirm);
+    $('confirmNewCancel').addEventListener('click', closeNewConfirm);
+    $('confirmNewOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeNewConfirm(); });
+    $('confirmNewAccept').addEventListener('click', () => {
+      closeNewConfirm();
+      Store.reset();
+      render();
     });
+
     $('btnAddRow').addEventListener('click', addRow);
     $('btnAddRowInline').addEventListener('click', addRow);
 
     const previewBtn = $('btnPreview');
     previewBtn.addEventListener('click', async () => {
-      const entering = !document.body.classList.contains('mode-preview');
-      if (entering) {
-        previewBtn.disabled = true;
-        previewBtn.textContent = 'Generando…';
-        await Paginator.paginate(state());
-        document.body.classList.add('mode-preview');
-        previewBtn.textContent = 'Volver a edición';
-        previewBtn.disabled = false;
-      } else {
-        document.body.classList.remove('mode-preview');
-        previewBtn.textContent = 'Previsualizar';
-      }
+      if (isPreviewing()) { closePreview(); return; }
+      previewBtn.disabled = true;
+      previewBtn.textContent = 'Generando…';
+      await Paginator.paginate(state());
+      document.body.classList.add('mode-preview');
+      previewBtn.textContent = '← Volver a editar';
+      previewBtn.disabled = false;
+    });
+    $('btnClosePreview').addEventListener('click', closePreview);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && isPreviewing()) closePreview();
     });
 
     $('btnExport').addEventListener('click', async () => {
       const btn = $('btnExport');
       btn.disabled = true;
       await PdfExport.exportPDF(state());
+      renderNumeroBadge();
       btn.disabled = false;
     });
 

@@ -30,6 +30,7 @@
   <button type="button" id="btnAddRow" class="toolbar-editing-controls">Agregar concepto</button>
   <button type="button" id="btnPreview">Previsualizar</button>
   <button type="button" id="btnExport" class="primary">Exportar PDF</button>
+  <button type="button" id="btnClosePreview" class="preview-only" aria-label="Cerrar previsualización" title="Cerrar previsualización (Esc)">×</button>
   <span class="help-text toolbar-editing-controls">Los campos marcados pueden editarse. Los importes se calculan automáticamente. Se guarda solo en este navegador.</span>
 </div>
 
@@ -67,7 +68,7 @@
       <div class="doc-title-block">
         <div class="doc-title">PRESUPUESTO</div>
         <div class="doc-meta">
-          <div class="doc-meta-row"><label>N.º</label><input type="text" id="fieldNumero" class="editable" placeholder="0000"></div>
+          <div class="doc-meta-row"><label>N.º</label><span id="fieldNumero" class="numero-badge">Pendiente</span></div>
           <div class="doc-meta-row"><label>Fecha</label><input type="text" id="fieldFecha" class="editable" placeholder="dd/mm/aaaa"></div>
         </div>
       </div>
@@ -81,6 +82,10 @@
         <div class="field-group">
           <div class="field-label">Nombre / Razón social</div>
           <input type="text" id="fieldClienteNombre" class="editable field-value" placeholder="Nombre del cliente">
+        </div>
+        <div class="field-group">
+          <div class="field-label">CUIT</div>
+          <input type="text" id="fieldClienteCuit" class="editable field-value" placeholder="Ej: 30-12345678-9" inputmode="numeric" autocomplete="off">
         </div>
         <div class="field-group">
           <div class="field-label">Dirección</div>
@@ -158,6 +163,20 @@
   <button type="button" data-cmd="insertOrderedList" title="Lista numerada">1.</button>
 </div>
 
+<!-- Confirmación de "Nuevo presupuesto" — reemplaza confirm() nativo porque
+     necesitamos rotular los botones "Cancelar" / "Crear nuevo". -->
+<div class="modal-overlay" id="confirmNewOverlay" hidden>
+  <div class="modal-box">
+    <p class="modal-title">¿Crear un nuevo presupuesto?</p>
+    <p class="modal-body">Los cambios del presupuesto actual que no hayan sido exportados podrían perderse.</p>
+    <div class="modal-actions">
+      <button type="button" id="confirmNewCancel">Cancelar</button>
+      <button type="button" id="confirmNewAccept" class="primary">Crear nuevo</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
