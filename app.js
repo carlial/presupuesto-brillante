@@ -411,7 +411,12 @@ const Paginator = (() => {
     const renderTo = document.getElementById('documentView');
     const html = DocumentRenderer.renderDocumentHTML(state);
     const headerText = DocumentRenderer.runningHeaderText(state);
-    const baseSheets = ['styles.css', 'paged-media.css'];
+    // Solo document-styles.css (nunca styles.css): Paged.js inyecta estas
+    // hojas directo en el <head> real "desenvolviendo" los @media print, y
+    // styles.css es justamente donde vive el @media print que oculta la
+    // barra de herramientas al imprimir — pasárselo la ocultaría también
+    // en pantalla durante la previsualización.
+    const baseSheets = ['document-styles.css', 'paged-media.css'];
 
     renderTo.innerHTML = '';
     const previewer1 = new Paged.Previewer();

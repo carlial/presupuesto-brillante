@@ -1,0 +1,106 @@
+/* ==========================================================================
+   ESTILOS DE CONTENIDO DEL DOCUMENTO — compartidos entre la vista de edición
+   y la vista de documento (DocumentRenderer genera el mismo marcado visual).
+
+   Este archivo SÍ se pasa a Paged.js (junto con paged-media.css) además de
+   estar linkeado normalmente en <head>: Paged.js necesita conocer fuentes,
+   tamaños y anchos de columna para medir dónde cortar cada página. A
+   propósito no contiene nada de la interfaz (barra, modal, @media print) —
+   eso vive en styles.css y nunca se le pasa a Paged.js (ver ese archivo).
+   ========================================================================== */
+
+.doc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+.logo-block img { height: 30px; width: auto; display: block; }
+.institutional-info { margin-top: 10px; font-size: 8.5pt; line-height: 1.7; color: var(--gray-500); }
+.institutional-info a { color: var(--gray-500); text-decoration: none; }
+
+.doc-title-block { text-align: right; flex-shrink: 0; }
+.doc-title { font-size: 12pt; font-weight: 700; letter-spacing: 2px; color: var(--navy); }
+.doc-meta { margin-top: 10px; font-size: 9pt; }
+.doc-meta-row { display: flex; justify-content: flex-end; gap: 8px; align-items: baseline; margin-top: 4px; }
+.doc-meta-row label { color: var(--gray-500); }
+
+.divider { height: 1px; background: var(--gray-border); margin: 22px 0; }
+
+.section-label {
+  font-size: 8.5pt;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--blue);
+  margin-bottom: 12px;
+}
+
+.two-col { display: flex; gap: 32px; }
+.two-col > .col { flex: 1; min-width: 0; }
+.two-col .col-divider { width: 1px; background: var(--gray-border); }
+
+.field-group { margin-bottom: 10px; }
+.field-label { font-size: 8pt; color: var(--gray-400); margin-bottom: 2px; }
+.field-value { font-size: 9.5pt; }
+
+/* Tabla de detalle: se usa tal cual (thead/tbody reales) en el documento
+   para que el encabezado se repita al paginar. En edición, las mismas
+   clases visuales envuelven inputs en vez de celdas de solo texto. */
+.detail-table { width: 100%; border-collapse: collapse; }
+.detail-table thead th {
+  text-align: left;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--gray-500);
+  border-bottom: 1.2px solid var(--navy);
+  padding: 0 12px 6px 0;
+}
+.detail-table th.col-num, .detail-table td.col-num { text-align: right; }
+.detail-table td { font-size: 9.5pt; padding: 9px 12px 9px 0; border-bottom: 0.5px solid var(--gray-border); vertical-align: top; }
+.detail-table th:last-child, .detail-table td:last-child { padding-right: 0; }
+.detail-table .col-cant { width: 50px; }
+.detail-table .col-preciou { width: 110px; }
+.detail-table .col-total { width: 110px; }
+.detail-table td.col-num, .detail-table td.col-cant { font-variant-numeric: tabular-nums; text-align: right; }
+.detail-table .col-desc-cell p { margin: 0 0 8px; }
+.detail-table .col-desc-cell p:last-child { margin-bottom: 0; }
+.detail-table .col-desc-cell ul, .detail-table .col-desc-cell ol { margin: 4px 0 8px; padding-left: 18px; }
+
+/* Vista de edición: mismas columnas, pero con inputs/contenteditable */
+.detail-head { display: flex; border-bottom: 1.2px solid var(--navy); padding-bottom: 6px; }
+.detail-head span { font-size: 8pt; font-weight: 700; letter-spacing: 1px; color: var(--gray-500); }
+.detail-head .col-cant { width: 60px; }
+.detail-head .col-desc { flex: 1; }
+.detail-head .col-preciou { width: 130px; text-align: right; }
+.detail-head .col-total { width: 130px; text-align: right; }
+.detail-head .col-spacer { width: 84px; }
+
+.detail-row { display: flex; align-items: flex-start; padding: 9px 0; border-bottom: 0.5px solid var(--gray-border); gap: 8px; }
+.detail-row .col-cant { width: 60px; }
+.detail-row .col-cant input { text-align: right; }
+.detail-row .col-desc { flex: 1; min-width: 0; font-size: 9.5pt; }
+.detail-row .col-preciou { width: 130px; }
+.detail-row .col-preciou input { text-align: right; }
+.detail-row .col-total { width: 130px; }
+.detail-row .col-total input { text-align: right; display: block; font-variant-numeric: tabular-nums; font-size: 9.5pt; padding: 1px 4px; }
+.detail-row .col-total input.computed { background: var(--field-hover); color: var(--gray-500); cursor: default; }
+.detail-row .col-spacer { width: 84px; flex-shrink: 0; }
+.rich-field.desc-field { min-height: 1.4em; font-size: 9.5pt; }
+.rich-field.desc-field p { margin: 0 0 8px; }
+.rich-field.desc-field p:last-child { margin-bottom: 0; }
+.rich-field.desc-field ul, .rich-field.desc-field ol { margin: 4px 0 8px; padding-left: 18px; }
+.rich-field:empty::before { content: attr(data-placeholder); color: var(--gray-400); }
+
+.totals-block { display: flex; flex-direction: column; align-items: flex-end; margin-top: 16px; gap: 6px; }
+.totals-row { display: flex; align-items: baseline; gap: 24px; font-size: 9.5pt; }
+.totals-row .totals-label { color: var(--gray-500); display: flex; align-items: baseline; gap: 3px; }
+.totals-row .totals-value { width: 130px; text-align: right; font-variant-numeric: tabular-nums; }
+.totals-row.iva-row .iva-input { width: 2.4em; text-align: right; display: inline-block; }
+/* No se oculta acá: en edición el campo de IVA siempre debe poder
+   completarse. Cuando está vacío, DocumentRenderer directamente no genera
+   esa fila en el documento/PDF (ver app.js), así que no hace falta CSS. */
+.totals-final-rule { width: 240px; height: 1px; background: var(--blue); margin: 4px 0 2px; }
+.totals-row.final { font-size: 11pt; font-weight: 700; }
+.totals-row.final .totals-label { color: var(--navy); }
+.totals-row.final .totals-value { color: var(--blue); font-size: 17pt; }
+
+.condiciones-body { font-size: 8.5pt; line-height: 1.7; color: #3C4257; text-align: left; }
+.condiciones-body p { margin: 0 0 8px; }
+.condiciones-body p:last-child { margin-bottom: 0; }
+.condiciones-body ul, .condiciones-body ol { margin: 4px 0 8px; padding-left: 18px; }
