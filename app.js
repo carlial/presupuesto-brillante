@@ -216,8 +216,8 @@ const Calc = (() => {
 const Numbering = (() => {
   // TODO: completar con los datos de Settings → API del proyecto Supabase
   // (Project URL y anon public key — ninguna de las dos es secreta).
-  const SUPABASE_URL = '';
-  const SUPABASE_ANON_KEY = '';
+  const SUPABASE_URL = 'https://pmlugbmiehxqzytjtpdg.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_6vV_NXvir7p4Qs6bg5kMRg_YX5rDmac';
 
   let client = null;
   function getClient() {
